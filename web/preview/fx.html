@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="icon" href="data:," />
+    <title>Returned Fire — Combat VFX preview</title>
+    <style>
+      :root { color-scheme: dark; }
+      * { box-sizing: border-box; }
+      html, body { margin: 0; height: 100%; overflow: hidden; background: #10151c; }
+      #view { display: block; width: 100vw; height: 100vh; }
+      .hud {
+        position: fixed; pointer-events: none; color: #f4efe4;
+        font: 500 13px/1.45 ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+        text-shadow: 0 1px 3px rgba(0, 0, 0, 0.85);
+      }
+      #title { left: 18px; top: 16px; }
+      #title b { display: block; font-size: 17px; letter-spacing: 0.14em; }
+      #title span { opacity: 0.72; }
+      #stats { right: 18px; top: 16px; text-align: right; white-space: pre; }
+      #label {
+        left: 0; right: 0; bottom: 26px; text-align: center;
+        font-size: 30px; letter-spacing: 0.22em; text-transform: uppercase;
+        font-weight: 700; color: #ffe6bd;
+      }
+      #label small { display: block; font-size: 13px; letter-spacing: 0.16em; opacity: 0.7; color: #f4efe4; margin-top: 6px; }
+    </style>
+  </head>
+  <body>
+    <canvas id="view"></canvas>
+    <div class="hud" id="title"><b>RETURNED FIRE — COMBAT VFX</b><span id="mode">scripted demo</span></div>
+    <div class="hud" id="stats"></div>
+    <div class="hud" id="label">booting<small>&nbsp;</small></div>
+    <script type="module" src="./fx.ts"></script>
+  </body>
+</html>

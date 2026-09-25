@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Returned Fire — structures &amp; props preview</title>
+    <link rel="icon" href="data:," />
+    <style>
+      :root {
+        color-scheme: dark;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
+        background: #10151a;
+        font: 12px/1.35 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        color: #e9e2d2;
+      }
+      #view {
+        display: block;
+        width: 100vw;
+        height: 100vh;
+      }
+      .panel {
+        position: fixed;
+        background: rgba(10, 13, 16, 0.74);
+        border: 1px solid rgba(233, 226, 210, 0.16);
+        border-radius: 3px;
+        padding: 8px 10px;
+        pointer-events: none;
+        text-shadow: 0 1px 2px #000;
+      }
+      #bar {
+        left: 0;
+        right: 0;
+        top: 0;
+        height: 56px;
+        border-radius: 0;
+        border-left: 0;
+        border-right: 0;
+        border-top: 0;
+        display: flex;
+        align-items: center;
+        gap: 18px;
+        padding: 0 14px;
+      }
+      #bar h1 {
+        font-size: 15px;
+        letter-spacing: 0.14em;
+        margin: 0;
+        color: #f3ead6;
+      }
+      #bar .sub {
+        color: #a9a293;
+      }
+      #tris {
+        left: 8px;
+        top: 62px;
+        width: 520px;
+        columns: 4;
+        column-gap: 14px;
+        font-size: 9.5px;
+        line-height: 1.26;
+      }
+      #tris b {
+        color: #cfe0a8;
+      }
+      #tris .over {
+        color: #ff9a7a;
+      }
+      #legendB,
+      #legendC {
+        font-size: 11px;
+      }
+      #legendB {
+        left: calc(60% + 10px);
+        top: 64px;
+      }
+      #legendC {
+        left: calc(60% + 10px);
+        top: calc(50% + 8px);
+      }
+      #legendA {
+        left: 8px;
+        bottom: 8px;
+      }
+      .k {
+        color: #cfe0a8;
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="view"></canvas>
+    <div class="panel" id="bar">
+      <h1>STRUCTURES + PROPS</h1>
+      <span class="sub" id="barSub">procedural geometry · no image assets · metres · 60° tilt</span>
+    </div>
+    <div class="panel" id="tris"></div>
+    <div class="panel" id="legendA"></div>
+    <div class="panel" id="legendB"></div>
+    <div class="panel" id="legendC"></div>
+    <script type="module" src="./structures.ts"></script>
+  </body>
+</html>

@@ -1,0 +1,129 @@
+/* App shell: full-bleed canvas plus the boot curtain. The in-game HUD owns its own CSS. */
+
+:root {
+  --hud-scale: clamp(0.78, min(100vw / 1600, 100vh / 900), 1.35);
+  --ink: #e8eef2;
+  --accent: #7fd4c1;
+  --amber: #ffb454;
+  --panel: rgba(12, 16, 20, 0.72);
+  --panel-edge: rgba(255, 255, 255, 0.09);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  overflow: hidden;
+  background: #05070a;
+  color: var(--ink);
+  font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+#app {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+}
+
+#view {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  touch-action: none;
+  cursor: crosshair;
+}
+
+#ui {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  user-select: none;
+  z-index: 10;
+}
+
+/* ---------------------------------------------------------------- boot curtain */
+
+#boot {
+  position: absolute;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  background:
+    radial-gradient(120% 90% at 50% 110%, rgba(255, 138, 46, 0.18), transparent 60%),
+    radial-gradient(90% 70% at 50% -10%, rgba(40, 90, 120, 0.35), transparent 65%),
+    linear-gradient(180deg, #070a0e 0%, #0b1016 60%, #06080b 100%);
+  transition: opacity 0.5s ease;
+}
+
+#boot.hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.boot-inner {
+  text-align: center;
+  padding: 0 24px;
+}
+
+.boot-inner h1 {
+  margin: 0 0 10px;
+  font-size: clamp(28px, 5vw, 62px);
+  font-weight: 800;
+  letter-spacing: 0.34em;
+  text-transform: uppercase;
+  background: linear-gradient(180deg, #fff 10%, #ffce8a 55%, #b8562a 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  text-shadow: 0 8px 40px rgba(255, 140, 40, 0.25);
+}
+
+.boot-inner .sub {
+  margin: 0 0 22px;
+  font-size: 13px;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: rgba(232, 238, 242, 0.55);
+}
+
+.boot-inner .bar {
+  width: min(420px, 70vw);
+  height: 4px;
+  margin: 0 auto;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+
+.boot-inner .bar i {
+  display: block;
+  height: 100%;
+  width: 0%;
+  border-radius: 3px;
+  background: linear-gradient(90deg, var(--accent), var(--amber));
+  transition: width 0.35s ease;
+}
+
+.boot-inner pre {
+  max-width: 70vw;
+  margin: 16px auto 0;
+  padding: 12px 14px;
+  text-align: left;
+  font-size: 12px;
+  line-height: 1.5;
+  color: #ffb3a7;
+  background: rgba(255, 0, 0, 0.06);
+  border: 1px solid rgba(255, 90, 70, 0.35);
+  border-radius: 8px;
+  overflow: auto;
+}

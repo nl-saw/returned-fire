@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Returned Fire — procedural surface library</title>
+    <link rel="icon" href="data:," />
+    <style>
+      :root {
+        color-scheme: dark;
+      }
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        height: 100%;
+        overflow: hidden;
+        background: #0b0d10;
+        font: 12px/1.45 ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+        color: #e8e6df;
+      }
+      #view {
+        display: block;
+        width: 100vw;
+        height: 100vh;
+      }
+      #hud {
+        position: fixed;
+        left: 12px;
+        top: 10px;
+        max-width: 560px;
+        padding: 8px 11px;
+        background: rgba(10, 12, 15, 0.62);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 6px;
+        backdrop-filter: blur(3px);
+        pointer-events: none;
+        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.7);
+      }
+      #hud b {
+        color: #ffd9a0;
+        font-weight: 600;
+      }
+      #hud .dim {
+        color: #a9a49a;
+      }
+      #hud .legend {
+        margin-top: 4px;
+        color: #b9b3a6;
+      }
+      #hud table {
+        border-collapse: collapse;
+        margin-top: 4px;
+      }
+      #hud td {
+        padding-right: 10px;
+        color: #cfc9bc;
+      }
+      #hud td.k {
+        color: #ffd9a0;
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="view"></canvas>
+    <div id="hud"></div>
+    <script type="module" src="./textures.ts"></script>
+  </body>
+</html>

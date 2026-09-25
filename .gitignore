@@ -1,0 +1,12 @@
+# build output
+/target/
+/web/dist/
+/web/node_modules/
+/web/src/sim/pkg/
+/tools/node_modules/
+# captured evidence (regenerate with tools/capture.mjs)
+/shots/
+# original soundtracks - the synthesised fallback covers their absence
+/music/
+# editor / OS
+.codeindex/

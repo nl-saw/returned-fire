@@ -1,0 +1,237 @@
+/**
+ * Map editor chrome.
+ *
+ * The panels are laid out in `editor.html`; this is only what they look like. Same palette and
+ * type as the game's HUD so the two feel like one program, but nothing here overlaps the view:
+ * the editor needs the whole frame for the terrain, so every panel is a slab down one edge.
+ */
+:root {
+  --ink: #e8e2d4;
+  --dim: #a49c8a;
+  --panel: rgba(14, 17, 15, 0.86);
+  --edge: rgba(206, 194, 158, 0.22);
+  --hot: #d8b53c;
+  --go: #7fbf5a;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: #0b0d0c;
+  color: var(--ink);
+  font: 13px/1.4 ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+
+#app { position: fixed; inset: 0; }
+#view { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+#ui { position: absolute; inset: 0; pointer-events: none; }
+#ui > * { pointer-events: auto; }
+
+.panel {
+  position: absolute;
+  background: var(--panel);
+  border: 1px solid var(--edge);
+  backdrop-filter: blur(3px);
+}
+
+h2 {
+  margin: 6px 0 4px;
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--dim);
+}
+
+/* ---- tools --------------------------------------------------------------- */
+
+#tools {
+  top: 10px;
+  left: 10px;
+  bottom: 108px;
+  width: 214px;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  overflow: auto;
+}
+
+#toolgrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 3px;
+}
+
+button {
+  font: inherit;
+  color: var(--ink);
+  background: rgba(40, 44, 38, 0.9);
+  border: 1px solid var(--edge);
+  padding: 4px 6px;
+  cursor: pointer;
+  text-align: left;
+}
+button:hover { background: rgba(60, 66, 56, 0.95); }
+button.on { background: var(--hot); color: #1a1a12; border-color: var(--hot); font-weight: 700; }
+button.go { background: rgba(60, 96, 48, 0.9); }
+button.go:hover { background: var(--go); color: #10160e; }
+
+label { display: block; font-size: 11px; color: var(--dim); }
+label.row { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+label input[type="range"] { width: 100%; }
+output { color: var(--ink); }
+
+input[type="number"], select {
+  font: inherit;
+  color: var(--ink);
+  background: rgba(30, 34, 30, 0.95);
+  border: 1px solid var(--edge);
+  padding: 3px 4px;
+}
+input[type="number"] { width: 74px; }
+
+/* ---- palette ------------------------------------------------------------- */
+
+#side {
+  top: 10px;
+  right: 10px;
+  bottom: 108px;
+  width: 224px;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  overflow: auto;
+}
+
+.palette { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
+.palette button { text-align: center; padding: 4px 2px; font-size: 11px; }
+
+/* The paint palette is the textures themselves, not their names: a swatch is what the brush will
+   lay down, drawn straight out of the surface library. */
+.swatches { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
+.swatches button {
+  padding: 0;
+  border: 2px solid transparent;
+  line-height: 0;
+  position: relative;
+}
+.swatches button canvas { width: 100%; height: auto; display: block; image-rendering: auto; }
+.swatches button span {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  font-size: 9px;
+  line-height: 12px;
+  text-align: center;
+  background: rgba(0, 0, 0, 0.55);
+  color: #f0ead8;
+}
+.swatches button.on { border-color: var(--hot); }
+
+.hint { margin: 4px 0 0; font-size: 11px; color: var(--dim); }
+.hintbar { font-size: 11px; color: var(--dim); }
+
+/* Team is a first-class choice, not a dropdown buried under the brush: which side a building
+   belongs to is the difference between a friendly depot and an enemy one. */
+.teams { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; margin-bottom: 6px; }
+.teams button { text-align: center; padding: 5px 2px; }
+.teams button[data-team="0"].on { background: #6f9a4e; color: #10160e; border-color: #6f9a4e; }
+.teams button[data-team="1"].on { background: #b08a4a; color: #1a1408; border-color: #b08a4a; }
+.teams button[data-team="2"].on { background: #8a8a86; color: #14140f; border-color: #8a8a86; }
+
+/* ---- bottom bar ---------------------------------------------------------- */
+
+#bar {
+  left: 10px;
+  right: 10px;
+  bottom: 10px;
+  padding: 7px 10px;
+  display: flex;
+  align-items: center;
+  gap: 10px 14px;
+  flex-wrap: wrap;
+}
+#bar .hintbar { gap: 10px; }
+#bar .hintbar input[type="range"] { width: 110px; }
+#bar .group { display: flex; align-items: center; gap: 6px; }
+#bar .grow { flex: 1; justify-content: flex-end; }
+#bar label { display: flex; align-items: center; gap: 4px; }
+.dim { color: var(--dim); }
+#status.bad { color: #e08a5a; }
+#status.good { color: var(--go); }
+
+#coord {
+  position: absolute;
+  left: 12px;
+  bottom: 104px;
+  font-size: 11px;
+  text-shadow: 0 1px 2px #000;
+}
+
+/* ---- boot ---------------------------------------------------------------- */
+
+#boot {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: #0b0d0c;
+  transition: opacity 0.4s ease;
+}
+#boot.gone { opacity: 0; pointer-events: none; }
+.boot-inner { text-align: center; }
+.boot-inner h1 { margin: 0; letter-spacing: 0.3em; font-size: 26px; }
+.boot-inner .sub { color: var(--dim); }
+
+/* The snap toggle is a default, not a rule: the note under it says how to override it, and is
+   small and quiet so it does not compete with the palette. */
+#side .note { margin: 6px 2px 0; font-size: 10.5px; line-height: 1.35; }
+#side .note b { color: #e8e2d2; font-weight: 600; }
+
+/* The overview: a small canvas over the map, under the side panel. It is drawn in the DOM rather
+   than as a second render target — cheaper, sharper, and a screenshot can read it back. */
+#overview {
+  position: absolute;
+  /* Centred over the map: the tool panel owns the left edge and the palette the right, so the
+     middle is the only place a panel can sit without covering something. Sized to the map exactly
+     — the toggle floats over its corner, because a panel taller than its contents is a black box
+     above the minimap. */
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: 112px;
+  width: 176px;
+  height: 176px;
+}
+#minimap {
+  display: block;
+  width: 176px;
+  height: 176px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(12, 14, 18, 0.72);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.45);
+}
+#overview button {
+  position: absolute;
+  right: 6px;
+  bottom: 6px;
+}
+/* The two toggles stack up the right-hand edge of the map. */
+#overview #fliptoggle {
+  bottom: 30px;
+  width: auto;
+  font-size: 10px;
+  line-height: 1;
+  padding: 3px 6px;
+  background: rgba(12, 14, 18, 0.8);
+  color: #cfd6df;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 4px;
+  cursor: pointer;
+}
+#overview button.on { background: #6ee07a; color: #10140f; border-color: #6ee07a; }

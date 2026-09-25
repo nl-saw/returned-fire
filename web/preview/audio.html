@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Returned Fire — audio preview</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext y='13' font-size='13'%3E%F0%9F%94%8A%3C/text%3E%3C/svg%3E" />
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #0d1013;
+        --card: #161b21;
+        --line: #2a323c;
+        --fg: #d8e0e8;
+        --dim: #8b98a6;
+        --accent: #7fd4a0;
+        --warn: #d98b6a;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--fg);
+        font: 13px/1.45 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      }
+      header {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        padding: 10px 16px;
+        border-bottom: 1px solid var(--line);
+        position: sticky;
+        top: 0;
+        background: var(--bg);
+        z-index: 2;
+      }
+      h1 { font-size: 15px; margin: 0; letter-spacing: 0.08em; }
+      h2 { font-size: 12px; margin: 0 0 8px; color: var(--dim); text-transform: uppercase; letter-spacing: 0.1em; }
+      .status { color: var(--accent); flex: 1; }
+      .status::after { content: attr(data-meta); color: var(--dim); margin-left: 12px; }
+      main { display: grid; grid-template-columns: minmax(420px, 1fr) minmax(560px, 1.2fr); gap: 12px; padding: 12px; align-items: start; }
+      .col { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+      .card { background: var(--card); border: 1px solid var(--line); border-radius: 6px; padding: 10px 12px; }
+      .grid { display: flex; flex-wrap: wrap; gap: 6px; }
+      button {
+        background: #1e252d;
+        color: var(--fg);
+        border: 1px solid var(--line);
+        border-radius: 4px;
+        padding: 5px 9px;
+        font: inherit;
+        font-size: 12px;
+        cursor: pointer;
+      }
+      button:hover { background: #27303a; border-color: #3d4a58; }
+      button.warn { border-color: #5a3a2c; color: var(--warn); }
+      .row { display: flex; align-items: center; gap: 10px; margin-top: 8px; flex-wrap: wrap; }
+      label { color: var(--dim); }
+      input[type='range'] { width: 160px; accent-color: var(--accent); }
+      .report {
+        margin: 0;
+        max-height: 74vh;
+        overflow: auto;
+        font-size: 11px;
+        line-height: 1.35;
+        white-space: pre;
+        color: #b9c6d2;
+      }
+      .summary { color: var(--accent); margin-bottom: 6px; }
+      .summary.bad { color: #e06c5a; }
+    </style>
+  </head>
+  <body>
+    <div id="app"></div>
+    <script type="module" src="/preview/audio.ts"></script>
+  </body>
+</html>

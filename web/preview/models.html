@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <link rel="icon" href="data:," />
+    <title>Returned Fire — vehicle models / rig proof</title>
+    <style>
+      :root {
+        color-scheme: dark;
+      }
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        background: #0b0e11;
+        overflow: hidden;
+      }
+      #stage {
+        position: relative;
+        width: 1800px;
+        height: 1100px;
+      }
+      #view {
+        display: block;
+        width: 1800px;
+        height: 1100px;
+      }
+      #labels {
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+      }
+      .lab {
+        position: absolute;
+        transform: translate(-50%, -100%);
+        font: 14px/1.25 ui-monospace, "SFMono-Regular", Menlo, monospace;
+        color: #e8eef4;
+        text-shadow:
+          0 1px 2px #000,
+          0 0 6px #000;
+        white-space: nowrap;
+        letter-spacing: 0.02em;
+      }
+      .lab b {
+        color: #ffd479;
+        font-weight: 600;
+      }
+      .lab i {
+        color: #9fb3c8;
+        font-style: normal;
+      }
+      #stats {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 1800px;
+        height: 226px;
+        box-sizing: border-box;
+        display: flex;
+        gap: 26px;
+        padding: 8px 14px;
+        background: rgba(6, 9, 12, 0.72);
+        border: 1px solid rgba(150, 180, 200, 0.18);
+        border-radius: 5px;
+        font: 13px/1.38 ui-monospace, "SFMono-Regular", Menlo, monospace;
+        color: #cfe0ee;
+        white-space: pre;
+      }
+      #stats > div {
+        flex: 0 0 auto;
+      }
+      #stats b {
+        color: #ffd479;
+      }
+      #stats .ok {
+        color: #8ee08a;
+      }
+      #stats .warn {
+        color: #ff8f6b;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="stage">
+      <canvas id="view" width="1800" height="1100"></canvas>
+      <div id="labels"></div>
+      <div id="stats"></div>
+    </div>
+    <script type="module" src="./models.ts"></script>
+  </body>
+</html>

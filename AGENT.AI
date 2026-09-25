@@ -1,0 +1,938 @@
+# Returned Fire
+
+A browser-native game inspired by **Return Fire** (Silent Software, 1995) — the
+bird's-eye capture-the-flag vehicular shooter — built with a Rust simulation core
+compiled to WebAssembly and a three.js renderer. Everything you see and hear is generated at runtime:
+there are no image, model or audio files in this repository.
+
+```
+┌──────────────┐   fixed 60 Hz steps   ┌────────────────────┐
+│  rf-core     │ ────────────────────► │  three.js renderer │
+│  (Rust/wasm) │   flat f32 view       │  (WebGL2)          │
+│  sim + AI    │ ◄──────────────────── │  input + HUD       │
+└──────────────┘   control packets     └────────────────────┘
+```
+
+## Faithful to the original
+
+* **Capture the flag.** Only the jeep can carry a flag; a dropped flag returns home by itself
+  (25 s, or the moment one of its own team touches it); you score by getting the enemy flag
+  **inside your own base walls** while your own flag is up — the whole walled compound counts, so
+  a runner who is through the gate has scored whether it drives on to the stand or stops in the
+  yard. A map with no recorded base frame falls back to a 7 m circle at the stand. Picking the
+  enemy flag up takes 3.4 m of it, and returning your own takes 4.6 m.
+* **Four vehicles with the original's roles.** M151 jeep (fastest, dies to one hit, swims,
+  carries flags, 16 grenades), M60 tank (360° turret, 150 shells, longest reach), M270
+  MLRS/HRSV (toughest, slowest, 100 rockets, lays 10 mines), AH-1 helicopter (fast, fragile,
+  100 shells + 50 rockets, may only rearm at its own base).
+* **Fuel and ammunition are finite.** Fuel depots, ammo tents and the base helipad refill
+  whatever is parked on them; land vehicles may steal the enemy's supplies, the helicopter
+  may not. Mines are the one thing that can never be restocked. Run dry and the driver bails
+  out and legs it.
+* **Missile turret towers** (slow to rotate and reload — that is their weakness), **drones**
+  that arrive if you camp in one spot, **infantry** that flee from vehicles and lob grenades,
+  and a **submarine** that surfaces and fires a heat-seeker if you leave the operation area.
+* Mines destroy any land vehicle outright and can be swept by helicopter rockets; bridges can
+  be destroyed, which cuts the map in half; a bridge deck is a real drivable surface over
+  real water.
+* Rounds are won by the flag; best of three takes the match.
+
+## Modernised
+
+* **Real 3D** — a tilted top-down camera (58° from horizontal, ~45–60 m out) over a
+  height-mapped island, with sun shadows, sky IBL, PBR materials, bloom, pooled particles
+  and scorch decals, and a sea shader with depth tint, fresnel sky reflection and a broken
+  foam line at the waterline. `Tab` switches to a second, steeper framing (66°) of the same
+  north-up compass heading — no yaw follow — and `Q`/`E` rotate either mode by hand. The
+  steeper framing is also pulled back 1.35x, because tilting *alone* shows **less** ground
+  (58.8 m of view-axis ground at 66°, against 65.7 m at 58°): paying for the tilt with
+  distance takes the second mode to 79.5 m along the view axis, 21 % more terrain than the
+  default — which is what "tilt it more so more terrain is visible" actually asks for.
+* **A compact HUD.** The 1995 original spent a third of the screen on its bottom panel; this
+  bar is a slim glass strip — measured **9.6 % of viewport height** at 720p, 900p, 1080p and
+  1440p — carrying the vehicle silhouette, armour/fuel/ammo bars, weapon counts, a live
+  minimap, flag state, score and round clock. Every bar is a count over a capacity the *sim*
+  reports for the hull you are in — armour, fuel, both magazines and the mine rack — because a
+  panel that guesses a magazine size (the fullest it has ever seen, else a generic 24) reads two
+  thirds full on a jeep for the rest of the match. The minimap is drawn **turned** — world `-x`
+  right, `-z` down — the way the editor's overview is read, with the compass tick following
+  the map's north to the bottom edge; one canvas transform carries the turn, so the terrain,
+  the blips and the camera cone cannot disagree.
+* **A real AI opponent.** The original had none: here an enemy commander keeps a flag runner
+  and a gunner in the field, drives them with flow-field pathfinding (the jeep will take the
+  sea route when it is shorter), evades incoming missiles, kills whatever you leave parked
+  and presses your base. Hulls that can fight on the move do: the helicopter holds a committed
+  lateral run while its gun is on the target, and the MLRS drives nose-on with its launcher
+  bearing — its pod is on a 180-degree turret and its rockets home, so it acquires at the
+  rocket's 190 m rather than its 80 m sight and shells towers on the way past instead of
+  parking under them. Hulls that run low break off and rearm — at a supply point that actually
+  carries what they need, which is not the same as the nearest one (a base's garage repairs and
+  rearms but holds no fuel, and an empty helicopter parked at one will sit there until the engine
+  quits). A helicopter that does run dry loses its engine and comes down burning, as a shot-down
+  one does. A tank, helicopter or MLRS that reaches the enemy base with nothing left
+  to shoot breaches the perimeter wall standing between it and the flag — the walls are
+  destructible and block line of sight, so a runner behind one has no way in and no cover until
+  it comes down — while towers still come first, because they are what kills the runner. That
+  includes the jeep, which is the hull most often left standing at an enemy wall with nothing to
+  shoot: it is the runner, and a runner that cannot get in has nothing else to do (a flag in
+  hand is the one exception — that jeep keeps running). The tank parks for it; the jeep,
+  helicopter and MLRS keep going. Measured on one base in 180 s:
+  6500 hp of perimeter down to 3906 under a tank, 3714 under a helicopter, 1693 under an MLRS
+  (whose rockets are the best wall-breaker of the four) and 4447 under a jeep, whose grenade is
+  the slowest. Both sides do it: over a 300 s AI-vs-AI round each base loses 2.2-2.7k of its
+  6500 hp perimeter (`cargo run --release --example breachwatch`). The reason a player can watch
+  their own team breach and not the enemy is the order of business, not a side bias — towers come
+  first, and so does anything still moving in view, so a base whose towers are up and whose
+  hulls are alive is defended rather than dismantled.
+  Measured in AI-vs-AI play: 134 m travelled per MLRS a match and 24 of its 29 rounds fired
+  while moving, against 50 m and 2 of 6 before. A helicopter looks for the other helicopter
+  first — it is the one contact that can kill it before it finishes anything else — and two
+  helicopters that fly into each other both come down: a real collision, not a scrape (air-to-air
+  contact also needs matching altitude, or a drone 18 m up would bounce off one at 3 m), with the
+  wreck path giving the pair their tumble and their fireball.
+  Its flow field now respects hull width — a cell is only routable when
+  at least three of its four cardinal neighbours are too — so a tank takes the intact bridge
+  rather than a gap it cannot fit through, and it no longer wedges itself in its own gateway.
+  Helicopters fight on the move: the chin gun's 120 m reach is what they acquire at (not the
+  92 m `sight`), they hold a committed lateral run across the target the whole time they are
+  shooting it, and they break that run when a shell is on the way in. Measured over 12 seeds
+  a 118 m duel used to be a free kill for the tank — the helicopter fired 39 rounds across the
+  sweep and died in 9 of the 12; it now fires ~10 rounds a duel and wins all 12.
+  Unaided, the commander completes a capture on Twin Atolls (t=62 s), Coral Rim (t=39 s) and
+  Iron Strait (t=150 s) in the audit's idle-player scenario; Shattered Keys is the one that can
+  still run out of round there (it captures on 9 of 12 seeds, and repeatedly in demo play).
+  Flag runners are not held out of a protected home zone any more: the stand sits *inside* that
+  bubble, so the rule that kept them clear of it parked them in front of the enemy base for as
+  long as the protection lasted — in AI-vs-AI play that is indefinitely, which is the reported
+  "the AI gets stuck in the base". Hulls also take their own line down a route rather than the
+  field's single 8-way heading for the cell: each drives a lane offset scaled by its width, so
+  a column of attackers fans out (same-route crossings measure 0.4 m wide without it, 11-22 m
+  with) — which is also what stops them queueing and wedging behind one another. When *every* crossing is down it holds near its own base and
+  mills around the pad instead of driving into the water.
+* **A spawn you can read the controls in.** A hull that has just left the garage cannot be
+  hurt for 8 s, and carries a further 20 s of protection that only runs down while it is
+  inside its own base zone — so a driver who is being shot at can fall back and break contact
+  for whatever is left of it. The timer is per hull and finite: bases are not sanctuaries, and
+  the AI holds outside a protected zone rather than parking on the pad and shelling it.
+* **The original soundtrack, with a synthesised fallback.** The game plays the actual
+  Return Fire (1995) recordings — public-domain classical pieces as 320 kbps MP3s in `./music`
+  at the repo root; vite serves them at `/music/` in dev and copies them into `dist/music` on
+  build. Each vehicle rides a war piece: **William Tell's gallop for the jeep, Mars for the
+  tank, Dies Irae for the HRSV, Ride of the Valkyries for the helicopter** (the title screen
+  also rides Dies Irae, so starting in an HRSV carries the track straight into battle without
+  a cut). Carrying the flag switches to William Tell; round ends sting with Hallelujah. If a
+  file is missing — folder deleted, offline build — the audio layer falls back to a theme of
+  the *same name* synthesised from scratch (WebAudio note data in `web/src/audio/music.ts`),
+  so you hear the same piece, not a different one; `?synth=1` forces the synthesised path for
+  A/B comparison. **The recordings are deliberately not in the repository.** The compositions
+  are public domain, but these performances are not — the Return Fire album is a commercial
+  release, so `./music` is git-ignored (~58 MB) and a fresh clone plays the synthesised themes
+  until you supply the files yourself. Put the nine MP3s **directly into `./music`** (not a
+  subfolder — they are requested as `/music/<name>.mp3`) from the
+  [Return Fire (1995) album on Khinsider](https://downloads.khinsider.com/game-soundtracks/album/return-fire-1995).
+  Because of that, a production build is synthesised-only unless whoever deploys it has the
+  recordings locally (`pnpm build` copies `./music` into `dist/music`, and that copy is not
+  reproducible from a clone). Bumblebee and Mountain King dropped out of the vehicle set when
+  the themes were re-cut to war pieces, though their files remain in `./music` if you want to
+  remap them. A hull's theme is started once per life, so input no longer restarts it: every
+  key press and mouse click is
+  routed through the audio resume path to keep the browser's context unlocked, and that path
+  used to re-arm the pending theme, so **every shot you fired dropped the track back to bar
+  one**. Measured after the fix: 30 clicks, 60 key presses and a drive leave the theme and its
+  start count untouched, and changing vehicle still switches it (count 1 → 2).
+* **Unlimited procedural islands, with the mirrored maps kept as a mode.** The primary
+  generator now builds a whole battlefield from the seed — no mirroring, both teams placed
+  independently — so every seed is a new island: **`?seed=1337` is one battlefield and
+  `?seed=1338` is another**, indefinitely. The original half-mirrored maps are still there
+  under **`?mode=mirror`** (or the **MIRROR** button on the title screen), where team 0's half
+  is authored and reflected so both teams get byte-identical terrain; the four sector names
+  apply to both modes. Classic islands are ~62–68 % land with 22–27 % deep water, and the
+  landed guarantees are unchanged: `validate()` still proves a land route from each spawn to
+  the enemy flag, and the mirrored maps are bit-for-bit what they were (621/616/620/614
+  structures).
+* **One road, and it goes somewhere.** A procedural island has exactly **one road**, running from
+  gate to gate **across the island**, through the towns and past the roadside hamlets. Every road
+  segment leads from somewhere that matters to somewhere that matters: there are no connector
+  roads, no free-standing grids and no dead ends. That last one is enforced twice, and it has to
+  be: the plan-level prune trims each branch back to its last junction *before the island exists*,
+  estimating the waterline with a slack for the terrain's domain warp, and the build then repeats
+  it against the finished height field and the asphalt scrub's own clearance — because whatever
+  the estimate gets wrong, the scrub cuts for real, and a road cut at the shoreline is a road that
+  stops in the middle of nowhere. Measured on Coral Rim seed 11 (the reported case): the trim
+  removes the spur that ran down to the pond, and across seeds 1-15 no road end is left more than
+  30 m from the nearest junction. Two earlier attempts got this wrong in ways worth
+  recording. Stamping grids wherever they fit and then joining each to its nearest neighbour
+  produced **roads that "made no sense"** — lines that led nowhere, spurs that dead-ended, and
+  grids overlapping each other. And the protected lane used to be built by joining sparse route
+  nodes with straight lines, which `stamp_roads` paints at level 255 over a 7 m width — wider and
+  brighter than any authored road — so the most prominent pavement on the map was a **diagonal
+  line** across the island. The lane now follows the road vertex for vertex, and the road corridor
+  is a reserved zone so nothing can be built on it (a solid structure blocks the nav cell it stands
+  on, which severs the lane and makes the enemy flag unreachable).
+* **The bases sit at the ends of the island.** The road runs gate to gate, so where the bases go
+  sets how long the road is — and therefore how much of the island it can settle. The anchor
+  search used to start at a fixed 50–70 units from the centre and stop at the first offset with pad
+  room for a base, i.e. as close to the middle as the pad allowed: the two gates came out **57
+  design units apart on every seed**, so the whole road network, every town on it and both bases
+  were crammed into the middle of the island with two thirds of the land empty, and a bigger
+  battlefield only spread that little cluster further apart. The search now walks out along the
+  island's axis to the coast and places each base a little inside it, keeping 58 m off the world
+  edge so a base's spawn and flag pads stay inside the map. Measured: the bases are 72 / 75 / 76 %
+  of the world apart on small / medium / big (they were 37 % on all three).
+* **A settlement you can read.** A town is a compact block grid with a building in *every* block —
+  a grid exists only because there are buildings inside it — and the blocks are **52–64 m on every
+  battlefield**. That is the point worth recording: the pitch is a property of the buildings in the
+  block, so it is a *length*, and a bigger battlefield gets **more towns** (one / two / four on
+  small / medium / big, on equal arcs of the road so they come out spread along it) rather than
+  wider ones. Written in the 256 m design space it was multiplied by the map scale and came out as
+  **229 m between streets on a big map, with the same four 13 m sheds in the blocks** — one building
+  per square kilometre. The same applies to the roadside hamlets (18 m apart along the road, never
+  a spur: a spur to a handful of buildings is a dead end by definition) and to the reserved corridor
+  along the road (14 m, not 7 design units, which was a 112 m wide no-build strip on a big map).
+  A town site is scored by how well its **whole grid** fits — every block on dry land, clear of the
+  water by the terrain's domain warp, and outside the 56 m base-pad reservation — so the grid is
+  never built with holes, and an arc with no room for a town simply has no town.
+* **Whole islands, shaped differently.** Classic islands are never cut in two by a channel. Their
+  variety comes from the **silhouette**: the landmass is a wandering chain of capsules — each
+  segment turning a random amount and running a random length — with joint blobs, satellites,
+  peninsulas, outlying islets and coastal inlets carved back in, plus bays and a lake. A channel
+  is the one feature that can make the enemy flag genuinely unreachable, and a splitting channel
+  on most maps is what made every island read as the same island twice. Bridges therefore appear
+  on the authored (mirror) maps only, where the deck geometry and the routes were fitted to each
+  other by hand. (Tested at ~25 % of islands first; it failed `validate` on some seeds because
+  `stamp_deck_route` marks deck cells padded by 1.45 m while `build_nav` only honours a cell the
+  deck covers within 0.6 m, so padded cells the deck does not cover stay water and sever the
+  lane.)
+* **Manhattan streets on concrete, kept off the water.** Roads bake as **light concrete** rather
+  than the asphalt-and-rock blend that used to make a road over stony ground look like more
+  rock. Pavement is kept a real distance from water — an **11 m setback**, not merely the
+  waterline — so a road never runs along or into the sea, and water is never paved at any
+  distance.
+* **Both main bases are walled compounds.** Each has a wall run, a gate and a sally port, and the
+  perimeter is placed unconditionally (a `put_at_y` that returned `bool` whose callers ignored it
+  is what left a segment missing at one corner). Enclosure styles — enclosed / partial / open —
+  were an earlier attempt at variety and were a misreading: the "some enclosed, others just roads
+  with buildings" note was about the *settlements*, not about the two main bases, which are the
+  layouts the AI and the capture flow are tuned against. One reservation the procedural bases need
+  and the authored mirror bases do not: the **lane from the spawn bay to the flag**, which is 14 m
+  inside a 48 x 38 m complex. On a big map the nav grid is 4 m a cell, so one bunker on that strip
+  rounds up to a blocked cell and leaves the flag with no 4-connected path from the spawn — which
+  `validate` catches as "team 0 cannot reach its own flag". `BaseCtx::fits` keeps a 6 m corridor
+  either side of it, for procedural plans only.
+* **Ground that reads as ground.** Rock is kept where the terrain is steep or high (rock averages
+  ~8 % of the ground), and **grass patches** now show clearly — large meadows (26–46 design units)
+  placed on inland ground between the settlements, which also break up the otherwise sandy read
+  of the interior. The earlier patches were small enough to be lost under the sand, and the maps
+  showed no grass at all.
+* **A map editor, and ground worth painting in it.** `editor.html` starts from a seed and lets
+  you shape the island, raise and lower terrain, paint the ground, lay roads and pavement, place
+  structures and bases, and hand the result to the game — with twenty undo steps, `.rfmap` save and
+  load, and a headless probe that drives the whole path. It comes with a wider ground palette: three
+  coherent **sands** (wind-sorted dune, dark iron-and-basalt grit, bleached coral hash), three
+  **grasses** (dense meadow, scrub, dry straw) and **pavement** in two shapes (square slabs, and a
+  line-up of long slabs laid along the road). The sand and grass channels are *ramps*, not single
+  materials: the map stores one variant index per vertex and the shader lerps between the two stops
+  either side of it, so painting a different sand changes the ground rather than laying a decal on
+  it. See "Map editor".
+* **A world worth driving across.** The maps were 256 m squares with ~260 structures; they are
+  now **512 m with 620–625 structures**, four times the playable area with *more* land per
+  square metre (72–76 % land, 18.7 % deep water, against 61 % / 37 % before) and channels,
+  bays and bridges that make the sea route a real decision. The camera can zoom out to 305 m
+  (it used to stop at ~120 m of a 256 m world), the sea is a 190 m coastal band rather than a
+  2.6× moat of empty water, and the shadow box follows the camera height so a zoomed-out view
+  is still lit.
+* **Timber bridge decks.** Each bridge is a run of transverse planks between joint boards, on
+  low kerbs, carried by pile bents standing in the water — the deck top sits exactly on the
+  surface vehicles drive on, and the piece-to-piece seam is a full-width joint board so no
+  plank doubles up or leaves a hole at any bridge pitch.
+* **Gates that open for their own side.** A base gateway's two leaves slide apart (eased, about
+  a second) for a friendly jeep, tank or HRSV in the opening or on the approach, and shut again
+  when the area is clear; the enemy's gate stays shut, a damaged gate keeps its wrecked twist,
+  and each of a base's two gates works independently. The opening is not solid either way, so
+  this is presentation rather than a barrier — the wall beside it is what you cannot cross.
+* **A match that waits for you.** Starting a game opens the garage before the clock runs: the
+  world is held (the sim is decoded, not stepped) until you have picked your first hull, and
+  the cards read live readiness — a slot that is rebuilding shows its timer instead of hiding
+  the button. After that first pick the world is live behind the respawn screen, like the
+  original.
+* **A gun on every hull.** The jeep's dish was the simulation's, not the model's: it traversed
+  at 3.2 rad/s with no gun mesh to move, and threw its grenade from the driver's hand. It now
+  carries an M151 pedestal socket with a pintle-mounted automatic grenade launcher — traversing
+  ring, trunnion, receiver, feed tray, ammunition box, jacketed barrel and muzzle drum — as the
+  same `turret` → `gun` → `muzzle` rig the tank and the helicopter use, with the spec's muzzle
+  matching the model's barrel tip to 0.000 m.
+* **Wrecks that look dead.** A hit lights up the hull it hit and only that hull — each rig gets
+  its own material clones, where the shared cached materials used to paint the whole army the
+  moment one vehicle was struck, destroyed hulls included. A destroyed ground vehicle keeps
+  rolling the way it was going and slows to a stop, blackened and smoking for a while; a
+  helicopter or drone stops flying, tumbles and bursts where it lands, and doesn't smoke (a
+  drone is reconnaissance, not a hull fire). A ground wreck also blocks the road while it lies
+  there and releases the cell when the wreck is culled, so a burning tank really can hold a
+  bridge against you. The helicopter's top speed was raised from 30 to 45 m/s in the same
+  pass — measured 44.9 m/s under power against 9.1 before, because the air drag model had been
+  cancelling most of its thrust.
+* **Fords, not stone causeways.** A protected lane that has to cross water is lifted to a
+  0.6 m shelf, so a non-amphibious hull has dry ground under it — but the lane keeps the route
+  mask `stamp_roads` painted at the route's asphalt level, and the surface shader bakes that
+  mask into a bright grey strip standing in the sea: the "super unnatural stone road" cutting
+  across the water. The asphalt is now cleared on exactly the vertices the lift turned from
+  water into land (the mask is read by occupancy and the nav grid *before* it is cleared, so
+  the lane is still reserved, still structure-free and still a preferred route). The same
+  scrub now also clears any road vertex below the waterline, and any within an **11 m setback**
+  of water, which is the general case of the same bug: a road polyline that reaches the shore
+  used to carry its pavement out into the sea beside the bridge deck that is doing the actual
+  crossing, and a road hugging the coast reads as pavement floating on the water. Bridge
+  abutments are exempt so an approach road can reach the deck, but the exemption applies only
+  to *dry land* by the abutment — water is never paved, so no concrete strip appears under a
+  deck. **Only a bridge crosses water, and it does so on its own deck mesh.** Measured across
+  the four maps, paved cells on the 0–0.75 m shelf fall from 566 / 1124 / 455 / 2167 to
+  73 / 145 / 26 / 176 — the remainder is ordinary coastal road that was never under water —
+  and paved vertices below 0 m are now **0** on every map in both generator modes.
+* **Ground units follow the ground.** Hull roll came out of the contact plane with a sign
+  error, so a tank on a side slope sat level while the terrain tilted under it — the reported
+  "it stays horizontal, sometimes it looks ok". Measured against the instantaneous contact
+  plane, the steady-state hull-up error falls from 39.8° to 2.9° on the worst slope, and the
+  attitude's lag behind a moving contact plane from 1.47° mean / 11.26° worst to 0.13° / 0.24°.
+  Scattered rocks and palms were seated on a single height sample, so any prop over a dip
+  floated — the reported "floating stones": each scatter kind now seats on the lowest of an
+  8-point contact ring, measured p50 gap 0 m with 5 of 202 rocks above 0.25 m (was p50 0.59 m
+  and a 9.6 m worst case), and 0 of 302 palms (was the same class of float).
+* **Aircraft are shootable.** A cursor over an enemy aircraft picks it (keyed off the
+  simulation's own AIRBORNE flag, so the recon drones sent after a camper count), the gun
+  elevates and traverses to the *predicted* intercept instead of to the ground behind the
+  target, and rounds are swept against the target's cylinder rather than tested only at the end
+  of each 1/60 s step — a 20 mm round covers 3.5 m in a tick and used to pass straight through
+  an airframe. Measured end to end: a tank lays up at a drone 170 m out and kills it. A lobbed
+  weapon cannot intercept, so the jeep's crosshair deliberately stays on the terrain instead of
+  being hijacked by a target its grenade cannot reach; the Mk2 itself now leaves on a lofted arc
+  (73.5° at 30 m against 12.2° flat), so it clears the cover it used to hit.
+* **Tracers along the line of fire.** A stretched particle was scaled along the *screen's* Y
+  axis whichever way it was travelling, so tracers, tracer sprites and muzzle-flash shards all
+  came out as screen-vertical spindles — the reported "vertical streaks instead of the fire
+  direction". The quad is built in the particle's own (across, along) basis now, and a round
+  with no screen direction (fired straight into the camera) degrades to a dot, not a beam.
+* Six quality/settings knobs (quality, master and music volume), split-screen two-player, and a
+  garage screen between lives.
+* **CPU FORCE — a configurable enemy.** The reported "the CPU has infinite respawns" is a dial:
+  EASY runs the enemy garage at exactly the player's own rules (`build_time` per hull, a reserve
+  capped at 3), MEDIUM (the default) at **1.5x unit availability**, HARD at **3x**. A human-held
+  team is never touched — it always plays at 1x, including both halves of a split-screen match.
+  The setting is also available as `?cpu=easy|medium|hard` for harnesses; the commander's field
+  target in `ai.rs::ai_commander` is scaled by the same factor (2 / 3 / 6), as is its reserve cap
+  (3 / 4.5 / 9) and its reinforcement cadence (every 2.6 / 1.73 / 0.87 s). Measured over 5
+  minutes of a real map with no human hull: 1.95 / 2.82 / 5.47 hulls in the field at once (peak
+  2 / 3 / 6). The commander also holds a reinforcement back while one of its hulls is still
+  inside its own base zone — with a bigger garrison, three hulls used to jam each other in the
+  gateway, and the tank would stall 167 m from its objective without ever getting out.
+  `?sandbox=1` is the other end of the dial: no enemy at all.
+* **Practice range.** A title-screen **SANDBOX** toggle (or `?sandbox=1`) empties the map of
+  enemy units and defence towers — no AI garrison, no commander, no drones, no infantry from
+  destroyed buildings, no out-of-bounds submarine — while structures, the flags, capture logic
+  and your own garage keep working. A persistent `PRACTICE RANGE` badge sits at the top of the
+  screen while it is on. It is a driving and gunnery range rather than a win condition: the
+  enemy team has nothing to capture.
+
+## Controls
+
+| Action | Binding |
+| --- | --- |
+| Drive / steer | `W` `A` `S` `D` or arrows |
+| Aim turret | mouse |
+| Primary weapon | left mouse (or `F`) |
+| Secondary — rockets / mines | right mouse or `Space` |
+| Helicopter strafe | `Z` / `C` |
+| Rotate camera (any vehicle, cockpit included) | `Q` / `E` |
+| Brake / descend | `Shift` |
+| Ascend (helicopter) | `Ctrl` |
+| Zoom | mouse wheel |
+| Camera mode (fixed tilt / steeper tilt) | `Tab` |
+| Garage / respawn | `Esc`, or pick `1`–`4` |
+| Mute | `M` |
+
+One keyboard, two players: in split screen player one keeps the left-hand set (`WASD`, `F`,
+`Space`, `Z`/`C` strafe, `Q`/`E` camera, `Shift`, `Ctrl`) and player two gets the right-hand
+set — arrows to drive and steer, `Enter` primary, `/` secondary, right `Shift` brake/descend,
+right `Ctrl` ascend, `,`/`.` helicopter strafe, `[`/`]` camera rotate. The two camera pairs use
+the same sign convention, so each player turns their own view the same way. Solo, the arrows stay
+player one's alias for `WASD`.
+
+## Map editor
+
+`editor.html` — the same page tree as the game, opened instead of `index.html`
+(`http://localhost:5178/editor.html` in dev). It starts from a random seed, paints the island with
+brushes, and hands the result straight to the game.
+
+| Tool | What it does |
+| --- | --- |
+| island | paints land and sea: pulls the ground towards the land-height slider, so a target below the waterline carves coast and one above it raises beach |
+| raise / lower | lifts and digs the ground |
+| smooth | averages the ground with its neighbours (takes the noise out of a coastline) |
+| paint | paints the material picked in the palette: one swatch sets the ground channel **and** its ramp variant, so the ground you paint is the ground you see |
+| pavement | lays slab paving or a strip of setts, `alt` erases |
+| road | drags a road of the **road width** in the bottom bar, in one of three modes: 90° turns (the default), straight, or freehand. `alt` erases |
+| place | drops the selected structure, with a ghost showing where and which way round it will land |
+| select | click a structure to pick it up, click again to put it down, `R`/`T` to turn it, `Delete` to erase it. A spot that is occupied or in the water is refused |
+| scatter | sprinkles the scenery group picked in the palette through the brush: palms, bushes, agave and tufts, or rocks and loose stones, or dry scrub |
+| copy | drag a rectangle to copy it (structures **and** pavement), then click to paste it — as many times as you like, each paste one undo step |
+| erase | takes out structures **and** pavement under the brush |
+| move base | picks the team's main base up and sets it down whole — one base per team, so the old complex comes out with it |
+| place base | builds that base (perimeter with a gate and a sally port, garage, HQ, helipad, supply dumps, turret towers, flag) — one base per team, so this replaces the old one |
+
+A base is **one asset**, and the editor knows which structures are its: the generator marks the
+parts it builds and the editor marks the parts it stamps (`sflag::BASE`), so moving a base takes out
+exactly the complex that was there — not "everything within 40 m", which on a small island is the
+other team's base and half a village. `move_base` is a distinct operation from writing a new anchor
+for exactly that reason; the two-step version loses the old anchor the moment the new one is written
+and leaves the old base standing.
+
+A stamped perimeter is a **stockade**: the front and back runs go corner to corner and the side runs
+stop half a wall short, so nothing is placed twice at a corner; each run is filled with pieces sized
+to its band, and their collision boxes are the models they draw. There is **one gate**, on the front
+run facing the enemy — no rear sally port, which read as a second entrance and usually had a
+building in front of it anyway.
+
+**Only green and brown can own a main base** — neutral is a scenery team, and the base tools are
+disabled for it rather than quietly mapping it onto green. Moving one base rebuilds **both**, because
+the two perimeters are positioned relative to each other: a move that took one and left the other
+would put their lattices out of step, which reads as walls crossing instead of meeting. A perimeter
+is filled with pieces *sized to the band they occupy* (the generator's own rule) rather than at a
+fixed pitch, so consecutive pieces butt together and the corners meet.
+
+Placement is **checked**: a building or a wall goes down only where it fits, and the ghost has said
+so before the click — the tint and the refusal come from one call, so a green ghost is a spot the
+click accepts. A placement in the water or on top of something already standing is refused with the
+reason in the status line rather than written over. The **overview** in the bottom corner is the
+whole island, the camera's footprint and the cursor, with a `nav` toggle that paints the drivable
+grid the pathfinder routes on — a lane that looks open and is not shows up there instead of in a
+vehicle wedged against a rock. It is drawn **turned** (west is right, north is down), which is how
+the map is read: walking north moves the cursor down it. `turn` puts the axes back the other way.
+
+The **paint palette** is the textures themselves: eight ground swatches (three sands, dirt, rock,
+three grasses) drawn out of the surface library, plus the two pavement shapes. **Team** is a
+first-class choice next to the palette — green (player), brown (enemy), neutral — because which
+side a building belongs to is the difference between a friendly depot and an enemy one. **Walls
+snap to walls**, and the rule is arithmetic rather than a lattice: a wall is joined by a piece's
+*end*, so two pieces continue a run when their centres are one segment (7.72 m) apart, and a piece
+butts onto the end of another when its centre is half a segment past that end, across the run. The
+cursor is projected into the nearest wall's own frame, the yaw snaps to that wall's axis or 90° from
+it, and the join is *computed* from those two cases — which is what makes a snapped wall always
+touch the wall it snapped to, with no band of positions in between where the ghost can sit a metre
+short and leave a notch.
+
+Three consequences worth knowing:
+
+* holding **shift** places free — no snapping at all, at whatever angle the piece is turned to;
+* a snap that cannot find a spot which joins something and is clear of every wall **declines**, and
+  the wall lands exactly where the cursor is. It never stacks one wall inside another, which is what
+  a cursor between two pieces of a run used to produce;
+* walls placed by hand stay where they are put: the rule reads the wall the cursor is beside, not a
+  pitch inferred from the neighbourhood, so one wall dropped a metre off the lattice no longer
+  becomes the stepping distance for everything placed after it.
+
+`R`/`T` turn a placement in 90° steps (a building's footprint is a rectangle, so the four
+orientations are the ones that matter), and the ghost is drawn from the same `preview()` call the
+placement is built from — a preview computed twice is a preview that lies.
+
+| Action | Binding |
+| --- | --- |
+| Apply the tool | left drag (a drag is **one** undo step) |
+| Drivable ground overlay | `M`, or the `nav` button under the overview |
+| Turn the overview 180° | the `turn` button under the overview (it starts turned) |
+| Pan / zoom / rotate | right or middle drag, wheel, `Q` `E` |
+| Place free (no snapping at all) | hold `shift` while placing |
+| Brush size (radius, in metres) | `[` `]`, or `shift`+wheel |
+| Placement yaw | `R` `T` (90° steps, structures and bases) |
+| Undo / redo | `ctrl+Z`, `ctrl+shift+Z`, or the bar |
+| Tool shortcuts | `1`…`9`, `0`, `-` |
+| Second camera tilt | `Tab` |
+
+**Undo is twenty steps** of the layers themselves — the rectangle a stroke touched, what each
+layer held there before and after — so undo is exact for heights (f32), weights (u8) and structure
+lists alike, and a two-hundred-dab brush stroke costs one rectangle rather than a copy of the map.
+The history is also capped by bytes, so twenty whole-map strokes on a big battlefield cannot
+balloon.
+
+**Saving** writes a `.rfmap`: magic, version, a JSON header a human can read
+(`head -c 120`), then the layers, pads, base definitions and structures, little-endian by
+construction. *Quick save* puts the same bytes in local storage (base64) for iterating, and
+**play this map** stores them and navigates to the game, which loads them through
+`Game::fromMap` — an edited map is a `MapData` like any other, so it goes through the same
+normalisation, the same `World` and the same navigation grid as a generated one.
+
+Two things an edited map does differently from a generated one, both deliberate:
+
+* **Gates are not solid in an edited base.** In a generated map the lane through a gateway stays
+  open because it is a *protected route* and `build_nav` never blocks a route cell. An edited map
+  has no routes, so a solid gate would seal the base its own spawn is inside — `validate` reports
+  it as "cannot reach the enemy flag". The wall beside the opening is still what you cannot cross.
+* **The nav grid is rebuilt, not painted.** It comes from the same rasteriser the generator uses
+  (`rasterize_nav`, lifted out of `Gen::build_nav` for exactly this), which is why there is one
+  definition of what is drivable rather than two that drift.
+
+**Every brush is checked as a brush**, not as a feature: `editor::brush_tests` measures a raised
+brush's radius and rate (a radius 14 m brush moves the centre by the full amount and the ground
+20 m away not at all), that hardness is the flat core, that `level` converges on its target and
+never overshoots, that a road stroke is the width it was asked for (measured across the mask), that
+painting a material moves *both* the weight and the variant, that a base moves whole and stays one
+base, and that every op round-trips through undo. Nine of the twenty are about wall snapping alone,
+because it is the one tool whose output is a *joint* rather than a thing: a piece continues a run,
+extends it past the end, crosses it on a piece boundary, and butts flush onto the end of a run —
+and joins a wall that was **shift-placed** off the lattice, which is the case the lattice rule got
+wrong, at four arbitrary angles. One of them sweeps 180 cursors over a run and asserts the invariant directly: a snap
+either brings a piece into contact with a wall or leaves the cursor alone, and two wall centres
+never end up closer than a wall is wide (`snap_wall` is a free function taking the walls and a
+cursor, so the rules are tested without an editor behind them). Four real bugs came out of writing
+them: a rounding slip that let a painted cell's weights sum to 256, a gate flag
+applied to "the last two structures" rather than to gates, and — the one a user would have felt as
+"the brushes are off" — the live wasm views going stale after any call that grows linear memory
+(saving a map is a megabyte), which left the terrain's height lookups returning `NaN` and the
+cursor ray falling through the ground on its first sample, so the brush painted where the camera
+was standing. The views are getters now, and the probe saves a map *then* checks the pick.
+
+The editor keeps the terrain live while you paint, and only where you painted: a stroke unions its
+dabs into one rectangle and the frame refreshes the mesh's heights, vertex colours, normals and the
+sea's depth field over that rectangle alone. Measured with `node tools/terrain-cost.mjs` on
+`?size=big` (263k vertices): **48 ms per dab for a full pass, 0.06 ms for the rectangle** — and the
+tool checks the region update leaves the buffers byte-for-byte identical to the full one, so it is
+an optimisation and not a second renderer.
+
+`node tools/editor-probe.mjs` drives all of it headlessly — raise, paint, road, structure, base,
+undo, redo, save, and then plays the result in the game — and reports the numbers, so a brush that
+stops working fails a check rather than a screenshot nobody diffs. It writes two captures: the
+canvas alone (`shots/editor-probe.png`) and the whole page (`shots/editor-ui.png`), because the
+panels only exist in the second.
+
+## Building
+
+Requirements: Rust with the `wasm32-unknown-unknown` target, `wasm-bindgen-cli` 0.2.128,
+Node 20+ and pnpm.
+
+```bash
+./scripts/build-wasm.sh     # cargo build --release + wasm-bindgen -> web/src/sim/pkg/
+cd web && pnpm install
+pnpm dev                    # prints the local link and the LAN link to open elsewhere
+```
+
+`./start.sh` does all three in one step (wasm build, dependency check, dev server). Running the
+game *is* running the dev server: there is no separate production mode and nothing executes on
+the host — the Rust simulation is compiled to wasm and runs in the browser. What the dev server
+adds over a bundle is unbundled modules with hot reload and readable stack traces; the game you
+play on it is the real one.
+
+The dev server listens on **every** interface (IPv4 + IPv6), not just loopback, and prints the
+reachable links once it is up:
+
+```
+  ➜  Local:   http://localhost:5178/
+  ➜  Network: http://192.168.122.56:5178/  eth0
+
+  ➜  On your network (listening on every interface)
+     http://192.168.122.56:5178/                eth0 · IPv4
+     http://192.168.122.56:5178/?auto=1         skip the menu, straight into a game
+     http://192.168.122.56:5178/?auto=1&two=1   two-player split screen
+```
+
+Open the `On your network` URL on a second machine, TV or tablet on the same network — nothing to
+install there. A keyboard and mouse are required; there are no touch controls yet. If another
+device cannot connect, allow TCP 5178 through the host firewall. `pnpm dev --host 127.0.0.1` forces
+loopback-only, in which case no LAN links are printed.
+
+### Release builds
+
+```bash
+cd web && pnpm build     # -> web/dist  (~259 kB gzip JS + 76 kB gzip wasm)
+pnpm preview             # serves web/dist on all interfaces, port 4173
+```
+
+`pnpm preview` is a **verification step, not a deployment**: it serves the built bytes so you can
+confirm the bundle actually works before shipping it. Run it after touching `vite.config.ts`, the
+wasm bridge, or asset paths — a build can break in ways the dev server never shows, because dev
+never bundles. Rollup drops code it believes is unused, and `base: './'` turns the wasm URL into a
+relative hashed asset (`./assets/rf_core_bg-<hash>.wasm`) that does not exist in dev. It also will
+not pick up edits — re-run `pnpm build` first.
+
+The build output is entirely static, so deploying means serving `web/dist` from any web host:
+
+```bash
+pnpm build
+python3 -m http.server -d web/dist 8000     # or nginx, Netlify, Pages, S3, ...
+```
+
+`base: './'` keeps every asset URL relative, so `dist/` also works from a subdirectory
+(`example.com/returnfire/`) with no configuration change. Two MIME types are worth a `curl -I` on a
+new host, since browsers are strict about both: **`.wasm` must be `application/wasm`** (otherwise
+`WebAssembly.instantiateStreaming` rejects it) and **the MP3s must be `audio/mpeg`**. Most static
+hosts are already correct.
+
+Note that `dist/music/` only exists if `./music` did at build time — the soundtrack recordings are
+not in the repository (see above), so a build from a fresh clone is synthesised-only and that is a
+perfectly valid way to publish the game. Add the recordings to `./music` before `pnpm build` if you
+want them in the artifact and have the right to distribute them.
+
+Native simulation tests need no browser: `cargo test`.
+
+## Configuration
+
+Everything the game lets you change lives in one file: **`web/public/rf.config.json`**. The dev
+server serves it at `/rf.config.json` and the build copies it next to `index.html`, so editing it
+and reloading is the whole workflow.
+
+```jsonc
+{
+  "rev": "1",                                  // bump to discard stored player changes
+  "video":   { "quality": "high" },            // low | medium | high
+  "audio":   { "master": 0.8, "music": 0.6 },
+  "match":   { "cpu": "medium", "sandbox": false, "allies": false,
+               "map": 0, "mode": "classic", "size": "small",
+               "seed": 0, "randomPlay": false,
+               "vehicle": 1, "vehicle2": 2, "maxveh": 0 },
+  "runtime": { "fps": 60, "look": 0 },
+  "tuning":  { "weapons.heli_cannon.life": 4, "vehicles.tank.hp": 900 }
+}
+```
+
+**Precedence.** The file is the baseline, the player's changes are layered on top, and URL query
+parameters override both:
+
+1. `rf.config.json` — what the build ships.
+2. `localStorage` (`rf.settings`) — what the player changed in the title screen's settings column,
+   or what `rfConfigSet` changed. `rev` is the fuse: change it in the file and every stored change
+   is dropped, which is what makes an edit to the file take effect for someone who already turned
+   the music down.
+3. `?cpu=`, `?quality=`, `?seed=`, `?fps=`, … — the harness surface (`main.ts`).
+
+**Tuning.** Everything under `tuning` is a simulation number, keyed by the dotted names the engine
+publishes — `rules.*` (rounds to win, spawn protection, drone count, flag timings…), `weapons.*`
+(damage, speed, cooldown, lifetime, range, homing…) and `vehicles.*` (hp, top speed, acceleration,
+fuel, ammunition, footprint, sight…). 416 numbers in total. Only what you list is changed; every
+other number keeps its compiled-in value, so a two-line file is normal:
+
+```jsonc
+"tuning": {
+  "rules.rounds_to_win": 1,          // one capture takes the round
+  "weapons.tank_shell.damage": 120,  // one-shot a jeep, two-shot a tank
+  "vehicles.jeep.can_carry_flag": 0  // nobody can score, for a driving sandbox
+}
+```
+
+Nested objects work as well as dotted keys. The values are clamped on the Rust side (`radius`
+cannot go negative, `speed` cannot be zero, `min_range` cannot exceed `range`), so a bad number
+degrades instead of breaking the physics, and a config file that is missing or malformed leaves
+the game running on its built-in defaults. The names come from `rf-core`'s `tuning.rs`, which
+generates the field list, the names and the reader from one declaration per struct, so the file's
+keys and the engine's fields cannot drift apart; `Sim.tuningLayout()` is the authority the web
+side maps the file against.
+
+**Live changes.** From the console:
+
+```js
+rfConfig()                                  // the settings in force, and what came from the file
+rfConfigSet('audio.music', 0.2)             // any path, stored like a settings-column change
+rfConfigSet('tuning.vehicles.tank.hp', 900) // hulls already in the field are re-issued their spec
+rfConfigReset()                             // forget stored changes, back to the file
+```
+
+`node tools/config-check.mjs` proves the chain end to end: it writes a temporary config file,
+boots the game and checks that the file was read, that its match options and volumes are in force,
+that a tuning number is what a spawned hull actually has, that a stored change survives a reload,
+and that bumping `rev` discards it (14 checks). For the list of names themselves — all 416
+tuning slots with their compiled-in defaults, no browser needed — run
+`node tools/config-options.mjs` (a word filters, e.g. `heli`; `--json` for machine-readable).
+
+What is deliberately *not* in the file: map generation constants (island shape, town pitch, road
+widths), AI manoeuvre timings and the renderer's art direction. Those are either structural
+invariants the map tests pin or code paths where a number means something only next to the code
+that reads it — `spec.rs` and `tuning.rs` are the boundary, and anything that becomes a design
+knob should move across it.
+
+## Layout
+
+```
+crates/rf-core/          Rust simulation (wasm + headless native tests)
+  src/mapgen.rs          procedural islands, bases, bridges, props, validation
+  src/world.rs           entities, 60 Hz loop, capture-the-flag, garage, resupply
+  src/physics.rs         arcade driving, terrain following, collisions, weapons
+  src/combat.rs          projectiles, splash, mines, structure destruction
+  src/ai.rs              drivers, gunners, turret towers, drones, troops, submarine
+  src/nav.rs             flow-field pathfinding
+  src/spec.rs            vehicle + weapon tuning tables (the compiled-in defaults)
+  src/tuning.rs          those tables as runtime data: the config file's `tuning` block
+web/public/rf.config.json  the game's settings file (see "Configuration")
+web/src/
+  config.ts              reads that file, layers stored player changes on it, precedence
+  sim/                   wasm bridge + the TypeScript mirror of the flat view layout
+  render/                scene, sky/sun, terrain + sea, world, camera, VFX
+  assets/textures/       procedural PBR material library and sky
+  assets/models/         procedural vehicles, structures, props and ruins
+  hud/                   bottom bar, minimap, menus, garage
+  audio/                 25 synthesised SFX, 5 engine voices, 8 themes (MP3-first, synth fallback)
+music/                   original soundtrack MP3s (top level) — they lead the music; served at /music/
+web/editor.html         the map editor page (see "Map editor")
+web/src/editor/         editor app: tools, brushes, palette, history, save/load, play
+tools/capture.mjs        headless render-and-capture harness (see below)
+tools/editor-probe.mjs   drives the editor headlessly and plays the result (see "Map editor")
+tools/terrain-cost.mjs   ground-refresh cost per battlefield size, region vs whole-map
+tools/perf.mjs           boot time + live frames per second per quality preset
+tools/aircheck.mjs       drives the real mouse onto an enemy aircraft and checks the kill
+tools/rotor-freeze.mjs   asserts a destroyed heli's rotors freeze (two-player sandbox + wasm seam)
+tools/structure-scale.mjs asserts no instanced structure part is drawn larger than the footprint the
+                         generator gave it — before, during and after a destroyed base is revived
+tools/garage-stall.mjs   long-play regression: an autopilot drives and re-requests vehicles for N minutes on a generated map, flagging a garage request or the CPU field stalling (`node tools/garage-stall.mjs [minutes] [seed] [map]`)
+tools/editor-stall.mjs   the same watch over an *editor-saved* map: it edits one in the editor app, stores it as "play this map" and plays it headlessly — the path a player's saved battlefield takes (`node tools/editor-stall.mjs [minutes] [seed]`)
+tools/audio-report.mjs   offline render of every sound, with measured assertions
+tools/sfx-spectrum.mjs   octave-band balance of one or more sounds, for "make it heavier" work (`node tools/sfx-spectrum.mjs [--names gunTank,explosionSmall]`)
+tools/hud-bars.mjs       every value and bar in the vehicle panel against the simulation, one page load per hull — the check that found the ammo bar stuck at two-thirds on a jeep
+tools/config-check.mjs   boots the game against a temporary config file and checks that its
+                         volumes, match options and simulation tuning are what is actually running
+                         (`node tools/config-check.mjs`)
+tools/config-options.mjs prints the config option list straight from the built wasm — every one of
+                         the 416 tuning slots with its compiled-in default, no browser or match
+                         (`node tools/config-options.mjs [filter] [--json]`)
+tools/structure-fit.mjs  asserts every structure model (and its ruin) fits the size the map generator places, and that `STRUCTURE_SIZE` matches it — the two numbers the renderer scales by (`node tools/structure-fit.mjs [--seed N] [--map N] [--size small|medium|big] [--explain KIND]`)
+docs/ARCHITECTURE.md     how the pieces fit together
+```
+
+## Verification
+
+`cargo test` — 150 tests passing, 0 failing, on a settled tree (17 further tests are `#[ignore]`d
+findings and diagnostics, listed below):
+
+| Suite | Count | What it proves |
+| --- | --- | --- |
+| lib (`mapgen`, `nav`, `physics`, `editor`) | 83 | determinism, 180° symmetry, structural invariants, walkability, road dead ends (a branch interrupted by water is removed back to its last junction — both the algorithm and the build wiring are pinned), that scattered rocks are actually *scattered* (spread over the island with real spacing between them and a lean to the outskirts, rather than piled in the first band the sweep reached), land/water balance per map, a flow-field rebuild budget (release wasm must stay inside 4 ms of a 16.6 ms frame), the aim suite: the land-vehicle ballistic table, the guard that gravity compensation stays inside the AI's elevation gate, the lofted lob table, an aimed shot hitting a crossing aircraft at 80/100/120 m, a fast round hitting at maximum engagement range, and a swept round passing through an airframe between ticks — plus the hull-width routing mask (a one-cell rock pinch is not a LAND cell even when its own terrain is drivable; a destroyed structure closes the lane) and the guard that a lane lifted out of the water is never paved — plus the map editor's forty-four: layer-exact undo and redo, the twenty-step history, a save/load round trip, the island brush carving water *and* the nav grid following it, ground weights staying convex, variants and pavement sticking, structures blocking nav and erasing, a stamped base validating — and twenty brush and snapping tests that measure a brush's radius, rate and hardness, a road's width across the mask, and how walls join — plus placement being *checked* (an occupied spot and the sea are refused, a bridge in the water is not), a structure picked up, moved, turned, refused an occupied spot and undone, a scatter that lands scenery on dry ground only and the same props for the same seed, a copy/paste that carries the pavement with the structures it belongs to, and the base tools: only the two playing teams can own a base, a move takes the old complex out and leaves the other team's alone, a stamped perimeter's pieces butt together with one open gate, and a stamped wall's collision box being the model it draws |
+| `sim_logic` | 29 | driving, a helicopter that runs its tank dry losing its engine and coming down burning, a helicopter picking the enemy helicopter out of a crowd, two helicopters colliding head-on and both coming down (against a hover drifting into another), flyers touching only at matching altitude, turret tracking, one-shell jeep kills, mines, bridges over water, spawn protection, fuel starvation, a guided seeker lofting off the muzzle where an unguided one leaves flat (the loft exists so a homing round can arc over a ridge and be brought back down; without a lock it simply sailed over the target, which is what "it never hits this turret" was), the helicopter reaching its advertised 45 m/s top speed, a helicopter engaging a tank inside its gun's reach but beyond its `sight` (118 m: the fix fires 8 rounds where the old AI fired none) and a helicopter that keeps flying while it shoots (0 of 19 rounds from a standstill, against 12 of 18 before), destroyed ground vehicles coasting on their last heading, a downed helicopter falling and exploding on impact, drone wrecks not smoking, wrecks blocking the road only while they lie there (and releasing it at the last one), scattered props seated on the ground they touch, hull roll against the contact plane, and the weapon-spawn audit: 11 weapons cross-checked against their models' muzzle anchors, direction and speed |
+| `sim_smoke` | 15 | 3600-tick stability on generated maps, a scripted flag capture, the capture boundary (a carrier inside its own walls scores, one still outside them does not), the spawn floor (no team fields two vehicles inside three seconds, at any field strength), the stress dial (`set_vehicle_cap` raising the field, never being exceeded, and `0` handing the ceiling back to the difficulty rules), the forced round results (`force_round_win`/`force_round_lose` scoring for the human team and reaching a match win, `force_next_round` skipping the round-over seconds), wreck/rebuild, turret engagement, every battlefield size building a `World` whose nav grid, occupancy grid and flow fields are sized from it (a medium or big world quietly using the small map's dimensions would show up here), a destroyed **neutral** building spawning no infantry — a classic map's town blocks, hamlets and landmarks are owned by team 2, and passing that owner to `spawn_vehicle` indexed the two-element `map.spawn` with it — and the non-finite guards: `clamp` never passes NaN/±inf through (a NaN steer falling through every clamp used to latch into yaw and velocity forever), a vehicle whose kinematics went non-finite is re-seated as a stopped, visible, drivable hull instead of pinning invisibly at map centre for the rest of the match, and a fully non-finite input cannot touch a vehicle's state |
+| `map_layout_report` | 3 | the two layout invariants that a design-space constant breaks by accident: **city blocks are the same 52–64 m on every battlefield** (a diagonal pair of town blocks measures the pitch, so a design-space pitch shows up as 229 m on a big map) and the towns *multiply* with the map instead of growing, and **the bases sit at the ends of the island** (72 / 75 / 76 % of the world apart; the old anchor search put them 37 % apart on all three). `cargo test -p rf-core --test map_layout_report -- --nocapture` prints town pitch, town marks and base separation per size |
+| `editor_play` | 3 (+2 diagnostics) | what an *edited* map does when it is played rather than inspected: the same classic map before and after a road, a wall run and a row of buildings, with a driver following the flow field — the route has to still exist and lead no further from the flag than it did, and a deliberate fence has to show up as no route at all. Plus the round that matters: the game's **own commander** takes the flag on the plain map, the roaded map and the built-on map, all three at t=148 s (seed 1, map 0). There is a finding in here worth knowing: an edited map's route costs about twice what the generated one's does, because the generator's *protected lanes* — the hints the flow field prefers — do not survive into an edited map, so `cargo test --test editor_play -- --nocapture` prints the comparison |
+| `gameplay_audit` | 47 (+5 findings) | a base helipad refusing damage even through the console seam, and a wall beside it still falling, resupply (a hull low on fuel or out of ammunition breaking off to rearm at a point that carries what it needs), weapons against their documented numbers, an AI MLRS killing a missile tower on the move, a tank, a helicopter, an MLRS *and* a jeep breaching the enemy base wall once they have nothing left to shoot, AI base pressure, a flag runner driving into a *protected* enemy base instead of waiting out the shield (the fix for the demo-mode "stuck in the base" report), AI routes actually differing between hulls (same-route crossings 0.4 m wide before, 11-22 m after), water-surface impacts, parked vehicles holding still, boats… bridges, spawn protection, idle-spawn survival across every map and team, AI aggression after the protection lapses, a hull shoved out of the water staying on the map, determinism — and the commander closing out a round unaided on **all four maps** (t=58 / 51 / 59 / 118 s, longest stall 7.1 s), which was this suite's oldest finding until the driving, acquisition and breach fixes landed together |
+| `bridge_audit` | 11 (+6 diagnostics) | every bridge connects land to land with no gaps or steps and is load-bearing; the AI tank leaves its base with turrets live on all four maps, frees itself from a jammed gateway, and holds near home when no route exists |
+| `wall_audit` | 1 (+3 diagnostics) | perimeter walls are straight, continuous, cornered runs with clean 8 m gates, derived from the geometry alone |
+| `mapdump` example | — | `cargo run --example mapdump -- <map> <seed>`: ASCII battlefield review, `validate()` and per-map land/water statistics |
+
+`tools/aircheck.mjs` is the one check that needs a pointer: it reads a live enemy aircraft's
+screen position from `rfProbe()`, drives the real mouse onto it, holds the trigger and reports
+the hull's hit points before and after — the only automated cover for the player-facing air aim.
+Because software WebGL renders this scene at well under 1 fps, it advances the game in fixed
+1/60 s steps through `window.rfStep(frames)` rather than waiting on wall-clock time; a wall-clock
+wait advances the simulation by almost nothing and a round's flight time never elapses. The same
+applies to keyboard input: `handleGlobalKeys` polls the key set once per step, so a harness must
+hold the key *across* an `rfStep()` call (`keyboard.down`, step, `keyboard.up`) — a sub-frame tap
+lands between two steps and is never seen.
+
+Visual verification uses `tools/capture.mjs`, which boots the game in headless Chromium
+(SwiftShader), renders one frame on demand (`window.rfCapture()`) and reports `rfProbe()` /
+`rfStats()`. It exists because software WebGL renders this scene at well under 1 fps, so
+compositor-timed screenshots time out; `--dom` additionally grabs the page to include the
+DOM HUD. `tools/perf.mjs` measures the other end — boot time and live frames per second for
+each quality preset. Audio has its own objective check: `node tools/audio-report.mjs` renders
+every sound offline and verifies peak/RMS/duration/spectrum plus the melody pitches.
+
+The harness drives the game entirely through URL flags: `?auto=1` skips the menus straight
+into a match, `&vehicle=1|2|3|4` picks the hull (jeep / tank / HRSV / helicopter — the same
+numbering as `vkind` in `rf-core`, so `0` is not valid and falls back to the jeep),
+`&map=0..3`, `&seed=N`, `&quality=low|medium|high`, `&texsize=N`, `&warmup=SECONDS` (sim
+seconds run before the first frame), `&demo=1` (autopilot drives and fires), `&two=1` (split
+screen), `&cpu=easy|medium|hard`, `&sandbox=1` (empty practice range), `&debug=1` and
+`&maxveh=N` (stress dial: the per-team ceiling on concurrent CPU hulls, see below),
+`&capture=1` (keep the drawing buffer alive for `rfCapture()`). `&look=x,z` parks the camera
+rig over a fixed ground point instead of following the hull — a dev-only framing hook used to
+line up the before/after captures in `shots/`.
+
+**Vehicle cap (stress dial).** The commander holds a team to the field strength the difficulty
+names — 2 / 3 / 6 hulls at once on easy / medium / hard, and a flat 2 for CPU allies. `?maxveh=N`
+overrides that ceiling for **both** teams, and `set_vehicle_cap(n)` moves it live from the
+console (`set_vehicle_cap(0)` hands it back to the rules, `vehicle_cap()` reads it back). It is
+clamped to 64 a team, because collision, targeting and the avoidance rays all walk the vehicle
+list every tick.
+
+Setting a cap moves two things:
+
+* the **ceiling**, for the CPU commander and for a human team's ally garrison;
+* the commander's **yard rule**, which with a cap set counts a base as busy once *two* of that
+  team's hulls are inside its own zone rather than one. At a field of sixteen someone is always
+  rotating home to refuel or repair, and the strict rule held the whole force at garrison size
+  while nine hulls sat parked in every garage slot.
+
+Spawning is paced in the simulation itself, not by the cap: **one field vehicle a team every four
+seconds** (`CPU_SPAWN_DELAY`, `world.rs`). A raised cap therefore fills as a steady stream rather
+than a batch on the pad — which is what the first version of this dial did, and what "many vehicles
+spawn at once" was reporting. Nothing is exempt: the opening garrison pair is fielded one hull on
+the round's first tick and the second on the clock (its reported "three vehicles at once" was the
+pair plus the demo slot's own hull), and a CPU-driven slot waits its turn with the commander it
+fights beside. The clock is armed by *any* field hull that appears, so the CPU cannot follow a
+human's own deploy inside the window — and a human's deploy never waits, which is why the check
+lives in the commander and the CPU-driven request path rather than in `spawn_vehicle`.
+
+What a cap settles at is what the fight can sustain. A knife fight kills hulls faster than one
+every three seconds, so a cap of 16 sits around six a side and a cap of 48 around twelve; the
+ceiling is there for the fights where hulls live longer. Add `&allies=1` to push the player's side
+too; allies fill to the same ceiling on the same clock.
+
+**Range overlay.** `F5`, or `rfRanges()` from the console, draws a circle around every *live*
+vehicle: **green** for how far it can *see* (`spec.sight`, the radius the AI's target acquisition
+uses) and **red** for how far it can *shoot* (its longest weapon — a helicopter's rockets outrange
+its chin gun, an MLRS reaches 190 m, a jeep's grenade 62 m). Wrecks are skipped: they are still in
+the vehicle list, they have no ranges worth drawing, and after a battle they are most of it.
+Defence towers are drawn in **purple** at their missile range — they are not hulls, their ring
+means something else (this ground is covered), and a tower has no separate sight radius, so one
+ring is the whole story. Both radii come from the
+same spec the simulation runs on, through the bridge, so the picture cannot drift from the
+behaviour. `rfRanges(true)` / `rfRanges(false)` set it explicitly; the rings draw through terrain
+and buildings, because a debug view that hides behind a hill is worse than useless.
+
+**Round-flow commands.** Three functions on `window` end the current round without waiting for
+a flag run: `force_round_win()` and `force_round_lose()` take the *real* path — score and
+capture count for the human team (or the other side), the round-over notification and sting,
+and a match win once the score completes — while `force_next_round()` skips straight to a fresh
+round, scoring nothing. They exist for the harnesses and for watching the round-end flow
+(`end_round` → 5.5 s → `new_round`); the audits use the same seam through
+`World::force_round_for`.
+
+### Battlefield size
+
+The world side is a runtime choice, not a constant:
+
+| `?size=` | world | grid | cell | generation | heightfield |
+|---|---|---|---|---|---|
+| `small` (default) | 512 m | 256 | 2.00 m | ~190 ms | 258 KiB |
+| `medium` | 1024 m | 384 | 2.67 m | ~420 ms | 579 KiB |
+| `big` | 2048 m | 512 | 4.00 m | ~790 ms | 1028 KiB |
+
+`?size=medium` and `?size=big` select the larger battlefields; the title screen exposes the same
+choice as a **SMALL / MEDIUM / BIG** row next to CLASSIC / MIRROR. It takes effect on START rather
+than immediately, because a world's dimensions are fixed when it is built — the nav grid, the
+occupancy grid, the flow fields, the physics bounds and the terrain mesh are all sized from it.
+
+**The cell size grows with the world on purpose.** Holding 2 m cells on a 2048 m map would cost
+16x the terrain memory, 16x the generation time and 16x the AI flow-field work per rebuild, and
+would need a million-vertex render mesh; scaling the cell keeps the cost near-linear in area (4x
+at big) at the price of coarser ground. Measured cost: 190 / 420 / 790 ms and 258 / 579 / 1028 KiB.
+The nav rebuild interval scales with the grid the same way, so a bigger world rebuilds
+proportionally less often.
+
+Two more URL flags apply to normal play, not just harnesses. **`?mode=mirror`** selects the
+original half-mirrored generator for the chosen sector; omitting it uses the procedural classic
+maps, which is the default. **`?seed=N`** picks the island — with the classic generator every
+seed is a different battlefield, while a mirror map keeps its authored layout and varies only
+in coastline detail. The title screen exposes the same mode choice as a **CLASSIC / MIRROR**
+pair of buttons under the sector list, and `start()` rebuilds the world when the selection
+differs from the one the boot sim was built with.
+
+`?fps=N` caps how often the frame loop actually runs, defaulting to **60** and applied on every
+URL, not just harness ones. The simulation is fixed-step at 60 Hz, so on a display that refreshes
+faster — 120 Hz or 144 Hz — the extra frames would draw an unchanged world a second time: cost
+with no new information, and on a software rasteriser that cost is the difference between
+playable and not. The gate uses a deadline rather than "time since the last frame", so the
+average rate is right on any refresh rate rather than only integer multiples of 60. Skipped
+frames deliberately do **not** advance `this.last`, so the next processed frame's `dt` still
+covers the whole interval and the game keeps real time instead of running in slow motion.
+`?fps=0` removes the cap, `?fps=30` halves it; an absent, empty or unparseable value is 60.
+Values below 10 are not useful — `dt` is clamped to 0.1 s to survive a backgrounded tab, so a
+cap that low would clamp every frame and slow the simulation down.
+
+The cap also **removed visible ghosting on a 120 Hz panel**, which is worth understanding because
+the obvious reasoning says it cannot. The frames are not identical: the world only steps 60 times
+a second, but the camera damping, the water shader's `uTime` and the VFX all advance on every
+rendered frame (see `updateCameras`, `terrain.update`, `fx.update`). At 120 Hz that is ~120
+genuinely distinct images per second of slow camera drift and rippling water — more visual change
+than a panel with a ~16 ms pixel response can resolve, so each frame was still decaying when the
+next arrived. Capping the content change rate to 60 Hz gives the panel a full frame interval to
+settle, which is why it looks clean at 60 Hz and ghosted at 120 Hz. If the cap is ever removed
+from a fast path, that regression comes back.
+
+`?maxframes=N` parks the render loop so a capture lands on a chosen frame. Captures taken
+*after* a warm-up can come back with an empty canvas that way: once the page stops producing
+frames, the compositor can drop the last one it was given. The game is fine in that state —
+when you need to verify frames after a warm-up, capture with the loop left running.
+
+For deterministic *aircraft* checks (rotor behaviour, flight physics, anything needing a live
+heli that stays alive), use `?auto=1&two=1&vehicle=4&vehicle2=4&sandbox=1`: both players get
+a helicopter from the pre-parked garage hulls on the first tick, and the practice range runs
+no AI at all, so neither hull is ever shot down by the simulation itself — one can be the test
+subject, the other a live control. `tools/rotor-freeze.mjs` does exactly that (killing through
+the `Game::debug_kill_vehicle` wasm seam instead of waiting for combat). Do not try to get a
+heli "the normal way" in these tests: on a live match an idle player heli is shot down by the
+CPU within ~20 s and never respawns on its own (the boot-time request is already consumed),
+and some seeds' CPU fields no helicopters at all, so waiting for one to appear is unreliable.
+
+Evidence images live in `shots/` (git-ignored; regenerate with the harness).
+
+## Known limitations
+
+* Rendering wants a GPU. In a browser without hardware WebGL2 — a VM whose virtio-gpu reports
+  no 3D caps, so Mesa falls back to llvmpipe — the game boots and plays but runs at single-digit
+  frames per second at 1152x648. The scene is ~470 draw calls and a software rasteriser spends
+  the whole frame in per-draw-call overhead (sampling the loop puts ~73% of CPU inside three's
+  `setValueM4`/`setValueM3` uniform uploads), so the quality presets barely change the number.
+  `node tools/perf.mjs` reports what a given machine does.
+* The `#[ignore]`d tests are findings and diagnostics, not failures. The interesting ones: the
+  audit's deliberately naive driver (straight at the flag, never dodging) is still a balance
+  finding on the maps whose channels it cannot ford. The AI captures unaided on Twin Atolls
+  (t=62 s), Coral Rim (t=39 s) and Iron Strait (t=150 s) with a player parked at base, but
+  Shattered Keys still runs out of round on that seed: its hulls reach a choke about 35 m from
+  the enemy flag and sit there at standstill for two minutes, or the lone survivor parks at its
+  own base with `goal=ATTACK_STRUCT` — something in the driver's approach to that last stretch
+  is still missing. (On a 12-seed sweep of that map the same build captures 9 times, so the
+  remaining gap is narrow; flagged as a balance finding.) **The procedural maps are in the same state**:
+  driven with the idle-player scenario (the AI plays, the human parks a jeep and does nothing),
+  no size reaches a capture in 320 s on seed 3 — the hulls close to the enemy base, then sit at
+  0.0 m/s. That is the same stall as Coral Rim, not a new one, and it is the reason the audits
+  are built on the authored maps; a classic-map capture audit is the thing to add when the
+  approach is fixed.
+* The hull-width routing rule is a clearance heuristic, not a collision planner: it rejects a
+  cell when fewer than three of its four neighbours are drivable (with a narrow escape route as
+  a fallback), which is what keeps the tank on the intact bridge and out of one-cell rock
+  pinches. Its margin is knife-edge in at least one deterministic case — map 0, seed 1: the
+  route passes a pinch by centimetres and the tank dies in the firefight that follows; the
+  pass itself is not the failure. The rule also roughly doubles the LAND flow-field rebuild
+  (measured 29.6 ms in a debug build against its 60 ms budget; the release wasm still clears
+  its 4 ms frame budget).
+* A lobbed round lands short of the sight line by up to ~4.5 m at long range (worst case the
+  MLRS at 150 m, a 4.7 s flight; every other lobbed case is inside 2.7 m): the 60 Hz
+  semi-implicit Euler drops the round `g·t·dt/2` below the continuous arc, and the range comes
+  from a discrete ground march along the sight line. The aim table in the tests carries that
+  bound instead of pretending a lob lands as tightly as a tank shell.
+* Scatter seating samples the terrain before the symmetry pass, so a prop on a mirror pair can
+  sit up to ~1.1 m higher than its twin, and the authored BUILDING/TENT/ANTENNA footprints are
+  placed on the pre-symmetry height field too — on map 2 one of them floats ~1.4 m. Neither is
+  visible from normal camera distance; both are listed because the seating tests measure them.
+* Split-screen two-player renders both viewports but shows player one's HUD.
+* The AI is competent rather than devious: the helicopter engages at its 20 mm's 120 m and
+  not at the 70 mm rocket's 170 m, it does not use the MLRS's mine-laying tactically, and its
+  navigation is a flow field with steering behaviours rather than a planner.
+* Gate leaves are presentation: the gateway has never been solid, so what opens is the door
+  model, not a barrier. There is also no HUD countdown for the home-zone protection — the
+  shield ring renders around the hull, but nothing says how many seconds are left.
+* Aiming lands on the crosshair, within a couple of metres on flat, open ground. Where the
+  crosshair only *grazes* a slope, the shot's flat arc necessarily starts below the sight line
+  and can strike the intervening cover short — that is cover doing its job, not a miss, and the
+  aim table in the tests prints both the flat-ground error and the grazing cases separately.
+* The jeep's gun now traverses, so its AI no longer has to point the hull at a target before
+  lobbing: inside ~59 m with line of sight it fires from any heading. All existing AI audits
+  pass, but the jeep's AI accuracy on its own has not been measured — the gap is stated rather
+  than hidden. Tank turrets still slew at 1.35 rad/s (~77°/s), which a player will notice as
+  lag on a snap turn.
+* Air defence is asymmetric. Only direct-fire weapons intercept: a lobbed round (the jeep's
+  thrown Mk2, an MLRS rocket) is solved from the sight line at the moment of firing, so rf-core
+  returns no air solution for one and the jeep's crosshair is not hijacked by an aircraft it
+  cannot reach. The air lead also holds the target's current altitude for the whole flight,
+  because a hull's vertical velocity is not in the mirrored velocity vector — negligible for a
+  cruising aircraft, but it is an approximation. AI accuracy against air targets has not been
+  measured in a live duel; its trigger gate compares an un-led desired heading with the now-led
+  turret, so a very fast crosser can delay its shot by a few ticks.
+* A lobbed round leaves the *level* muzzle: `combat::muzzle_pos` pins a lobbed weapon's muzzle to
+  the hull (its arc is solved at launch), so with the launcher elevated to its limit the spawn
+  point sits about 0.6 m from the visible barrel tip. The flash follows the barrel; the round
+  does not.
+* A scorch decal is only stamped where there is terrain under the blast — a kill above about 2 m
+  leaves fire, sparks, smoke and a falling wreck but no crater. The cost of the guard is that a
+  structure-top explosion no longer scorches the roof it happened on (which, for a destroyed
+  structure, would have floated over the rubble anyway). Measured by blast height: +1 decal on
+  the ground, +1 at 1 m, none at 3 m, 13 m or 40 m. Decals live 52-70 s (60 for a scorch with no
+  crater to merge into) and fade over their last 35 %, but the pool is a fixed ring — 128/256/384
+  slots at low/medium/high — so sustained shelling recycles the oldest long before its time is
+  up. The ring is emptied when a round ends and when the map is rebuilt: craters are the previous
+  fight's, and on a rebuilt map they belong to an island that no longer exists.
+* The gate doors were verified in game by driving a hull through a gateway and reading the
+  door fraction (0 → 1.0 in the opening → 0 behind it); the bridge decks were verified from
+  captures and `bridge_audit`, not by driving every span on every seed.

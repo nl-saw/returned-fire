@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+    <title>Returned Fire — HUD preview</title>
+    <link rel="icon" href="data:," />
+    <!-- the HUD stylesheet is also imported by src/hud/hud.ts; linked here so the
+         preview page is self-describing and the screenshot shows real styling -->
+    <link rel="stylesheet" href="/src/hud/style.css" />
+    <style>
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        height: 100%;
+        overflow: hidden;
+        background: #05080b;
+      }
+      #app {
+        position: absolute;
+        inset: 0;
+      }
+      #view {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        display: block;
+      }
+      #ui {
+        position: absolute;
+        inset: 0;
+        overflow: hidden;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app">
+      <canvas id="view"></canvas>
+      <div id="ui"></div>
+    </div>
+    <script type="module" src="./hud.ts"></script>
+  </body>
+</html>

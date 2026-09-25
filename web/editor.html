@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Returned Fire — Map Editor</title>
+    <link rel="stylesheet" href="/src/editor/editor.css" />
+  </head>
+  <body>
+    <div id="app">
+      <canvas id="view"></canvas>
+      <div id="ui">
+        <div id="boot">
+          <div class="boot-inner">
+            <h1>MAP EDITOR</h1>
+            <p class="sub" id="bootmsg">waking the simulation…</p>
+          </div>
+        </div>
+
+        <aside id="tools" class="panel">
+          <h2>Tools</h2>
+          <div class="grid" id="toolgrid"></div>
+          <h2>Ground</h2>
+          <div id="swatches" class="swatches"></div>
+          <h2>Brush</h2>
+          <label>size <output id="osize">18 m</output>
+            <input id="bsize" type="range" min="4" max="120" step="1" value="18" />
+          </label>
+          <label>strength <output id="ostrength">0.55</output>
+            <input id="bstrength" type="range" min="0.05" max="1" step="0.05" value="0.55" />
+          </label>
+          <label>hardness <output id="ohard">0.40</output>
+            <input id="bhard" type="range" min="0" max="0.9" step="0.05" value="0.4" />
+          </label>
+          <label class="row">land height <output id="oland">2.5 m</output>
+            <input id="landh" type="range" min="-6" max="14" step="0.5" value="2.5" />
+          </label>
+        </aside>
+
+        <aside id="side" class="panel">
+          <h2 id="palettetitle">Structures</h2>
+          <div class="teams" id="teams">
+            <button data-team="0" class="on">green</button>
+            <button data-team="1">brown</button>
+            <button data-team="2">neutral</button>
+          </div>
+          <div id="palette" class="palette"></div>
+          <label class="row" title="walls join the wall beside them; hold shift while placing to drop one exactly where the cursor is">
+            <span>walls snap</span>
+            <input id="snap" type="checkbox" checked />
+          </label>
+          <p class="note dim">hold <b>shift</b> to place free — no snapping at all</p>
+        </aside>
+
+        <footer id="bar" class="panel">
+          <div class="group">
+            <label>seed <input id="seed" type="number" value="7" /></label>
+            <button id="new">new island</button>
+            <label>size
+              <select id="size">
+                <option value="0">small</option>
+                <option value="1">medium</option>
+                <option value="2">big</option>
+              </select>
+            </label>
+            <label>mode
+              <select id="mode">
+                <option value="0">classic</option>
+                <option value="1">mirror</option>
+              </select>
+            </label>
+          </div>
+          <div class="group">
+            <button id="undo" title="Ctrl+Z">undo</button>
+            <button id="redo" title="Ctrl+Shift+Z">redo</button>
+            <span id="history" class="dim">0 / 20</span>
+          </div>
+          <div class="group">
+            <button id="save">save .rfmap</button>
+            <button id="load">load</button>
+            <button id="quick">quick save</button>
+            <button id="quickload">quick load</button>
+            <input id="file" type="file" accept=".rfmap,application/octet-stream" hidden />
+          </div>
+          <div class="group">
+            <button id="play" class="go">play this map</button>
+          </div>
+          <div class="group grow">
+            <span id="status" class="dim">—</span>
+          </div>
+          <div class="group hintbar">
+            <label class="row">pavement
+              <select id="pave">
+                <option value="2">strip along x</option>
+                <option value="3">strip along z</option>
+                <option value="1">square slabs</option>
+              </select>
+            </label>
+            <label class="row"><span>road width</span>
+              <input id="roadw" type="range" min="4" max="24" step="1" value="8" />
+              <output id="oroadw">8 m</output>
+            </label>
+            <label class="row">mode
+              <select id="roadmode">
+                <option value="right">90° turns</option>
+                <option value="straight">straight</option>
+                <option value="free">free</option>
+              </select>
+            </label>
+            <span id="selnote" class="dim"></span>
+            <span id="clipnote" class="dim">clipboard: empty</span>
+            <span class="dim">left drag paints · right drag pans · wheel zooms · Q/E rotate · R/T turn 90° · shift places free</span>
+          </div>
+        </footer>
+
+        <div id="overview">
+          <canvas id="minimap"></canvas>
+          <button id="navtoggle" title="drivable ground (M)">nav</button>
+          <button id="fliptoggle" title="turn the map through 180 degrees">turn</button>
+        </div>
+        <div id="coord" class="dim"></div>
+      </div>
+    </div>
+    <script type="module" src="/src/editor/main.ts"></script>
+  </body>
+</html>

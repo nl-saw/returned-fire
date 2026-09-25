@@ -1,0 +1,71 @@
+{
+  "$comment": [
+    "Returned Fire - game settings.",
+    "",
+    "This file is the game's defaults. Edit it and it applies on the next reload (a dev server",
+    "picks it up straight away; a built copy lives next to index.html).",
+    "",
+    "Settings changed in the title screen's settings column are remembered in localStorage and",
+    "layered on top of this file; bump `rev` below to throw those stored choices away (which is",
+    "what makes an edit here take effect for a player who already changed something). The URL",
+    "query parameters (?cpu=, ?quality=, ?seed= ...) override both - they are the test harness.",
+    "",
+    "Everything under `tuning` is a simulation number, keyed by the dotted paths the engine",
+    "publishes (`rules.*`, `weapons.*`, `vehicles.*`). List only what you want to change: any",
+    "key you leave out keeps its compiled-in value. Units: speeds m/s, times seconds, ranges",
+    "metres, angles radians. `node tools/config-options.mjs` prints the full list of names."
+  ],
+
+  "rev": "1",
+
+  "video": {
+    "$comment": "Render quality preset: low / medium / high. Sets pixel ratio, shadow map size, bloom, MSAA and terrain bake resolution.",
+    "quality": "high"
+  },
+
+  "audio": {
+    "$comment": "0..1. Master affects every bus including engines and effects; music is the score only. These are the values the mixer starts at, and the settings column reads them back, so the sliders show what is actually playing.",
+    "master": 0.9,
+    "music": 1.0
+  },
+
+  "match": {
+    "$comment": "The title screen's match options. `cpu` is the enemy commander's build rate and reserve; `sandbox` is the practice range with no enemy force; `allies` fields a friendly CPU garrison.",
+    "cpu": "medium",
+    "sandbox": false,
+    "allies": true,
+    "$comment_map": "`map` is an index into the map list, or -1 to pick one on the first match. `mode`: classic (procedural) or mirror (the older half-mirrored generator). `size`: small / medium / big.",
+    "map": 0,
+    "mode": "classic",
+    "size": "small",
+    "seed": 11,
+    "randomPlay": false,
+    "$comment_vehicles": "Garage choice for player one and player two (vkind: 1 jeep, 2 tank, 3 MLRS, 4 helicopter).",
+    "vehicle": 1,
+    "vehicle2": 2,
+    "$comment_maxveh": "Per-team ceiling on concurrent CPU hulls. 0 = the difficulty's own rule (2/3/6).",
+    "maxveh": 0
+  },
+
+  "runtime": {
+    "$comment": "`fps` caps the frame rate (0 = uncapped). `look` selects the vehicle team-identity look: 0 stock (original painted marks), 1 bold hull bands, 2 team pennants, 3 team-coloured ground rings (the default - fliers keep camo and marks only).",
+    "fps": 60,
+    "look": 3
+  },
+
+  "tuning": {
+    "$comment": [
+      "Simulation numbers. Anything omitted keeps the compiled-in default, so a short list is",
+      "normal and is the recommended way to use this block. Examples:",
+      "",
+      "  \"rules.rounds_to_win\": 1,            captures needed to take a round",
+      "  \"rules.max_drones\": 0,               no counter-battery drones",
+      "  \"weapons.tank_shell.damage\": 120,    one-shot a jeep, two-shot a tank",
+      "  \"weapons.heli_cannon.life\": 4,       seconds of flight (speed x life = reach)",
+      "  \"vehicles.tank.speed\": 12,           top speed in m/s",
+      "  \"vehicles.jeep.can_carry_flag\": 0,   nobody can capture, for a sandbox game",
+      "",
+      "Run `node tools/config-options.mjs` for the full list of 416 names (a word filters, e.g. heli; --json for machine-readable output)."
+    ]
+  }
+}
