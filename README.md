@@ -4,8 +4,10 @@
 
 A browser-native game inspired by **Return Fire** (Silent Software, 1995) — the bird's-eye
 capture-the-flag vehicular shooter. The simulation core is Rust compiled to WebAssembly;
-the renderer is three.js. Everything you see and hear is generated at runtime: there are no
-image, model or audio files in this repository.
+the renderer is three.js. Everything you see and hear in the game is generated at runtime —
+there are no art or audio assets to load.
+
+![A walled base compound mid-battle: helicopter, turret towers, supply dumps and a burning wreck](screenshot.webp)
 
 ```
 ┌──────────────┐   fixed 60 Hz steps   ┌────────────────────┐
