@@ -62,9 +62,10 @@ pnpm install --frozen-lockfile
 pnpm dev                    # prints the local link and the LAN link
 ```
 
-Running the game *is* running the dev server: nothing executes on the host, the Rust
-simulation runs in the browser. There is no separate production mode — see Release builds
-below for shipping a static bundle.
+Running the game *is* running the dev server: vite serves the source tree at `./web/`
+directly (unbundled modules, hot reload), and nothing executes on the host — the Rust
+simulation runs in the browser. No build step is needed to play; `web/dist` only comes into
+play when you want a static bundle to deploy (see Release builds).
 
 ### Original soundtrack (optional)
 
